@@ -19,11 +19,12 @@ The preview while you drag (the highlighted cells and the tooltip counts) still 
 
 ## Installing
 
-1. Close the game.
-2. Copy `dsound.dll` and `OreSweep.ini` into the folder that contains `Whiskerwood-Win64-Shipping.exe`:
+1. Download `OreSweep-v1.0.zip` from the [Releases page](https://github.com/ringuh/whiskerwood-oresweep/releases) and unzip it. It contains `dsound.dll` and `OreSweep.ini`. (Or [build them yourself](#building-from-source).)
+2. Close the game.
+3. Copy `dsound.dll` and `OreSweep.ini` into the folder that contains `Whiskerwood-Win64-Shipping.exe`:
    `...\steamapps\common\Whiskerwood\Whiskerwood\Binaries\Win64\`
    (In Steam: right-click Whiskerwood → Manage → Browse local files, then open `Whiskerwood\Binaries\Win64`.)
-3. Start the game and hold Ctrl while releasing a mining drag.
+4. Start the game and hold Ctrl while releasing a mining drag.
 
 **Uninstalling:** delete `dsound.dll` and `OreSweep.ini`.
 
@@ -60,7 +61,15 @@ Needs LLVM (clang, lld-link and llvm-dlltool, version 15 or newer). Visual Studi
 ./build.sh
 ```
 
-This works on Linux, WSL, or Git Bash on Windows with [LLVM for Windows](https://github.com/llvm/llvm-project/releases) on the PATH. The result is `build/dsound.dll` plus a copy of `OreSweep.ini`.
+This works on Linux, WSL, or Git Bash on Windows with [LLVM for Windows](https://github.com/llvm/llvm-project/releases) on the PATH. The result is `build/dsound.dll`, a copy of `OreSweep.ini`, and `build/OreSweep-v1.0.zip` containing both (the file to attach to a GitHub release).
+
+## Publishing a release
+
+1. Run `./build.sh`.
+2. On GitHub: Releases → Draft a new release → tag `v1.0` → attach `build/OreSweep-v1.0.zip` → Publish.
+   Or with the GitHub CLI: `gh release create v1.0 build/OreSweep-v1.0.zip --title "OreSweep v1.0"`.
+
+When you bump the version, change `VERSION` in `build.sh` and the zip name in the Installing section.
 
 ## How it works
 
