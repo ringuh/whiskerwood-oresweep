@@ -4,6 +4,10 @@ An ore-only mining mod for [Whiskerwood](https://store.steampowered.com/app/2489
 
 Hold **Ctrl** while you release a mining-tool drag. Only the cells that contain ore (gold, copper, tin, iron, coal, rock salt, potash, ...) get marked. Plain stone is skipped. Without Ctrl the mining tool works exactly as before.
 
+![OreSweep in action: a Ctrl-drag over a whole island marks only the ore cells](docs/demo.gif)
+
+In the demo, Ctrl-drags over an island mark only the ore veins; the stone around them is left alone. [Full-quality video (MP4)](docs/demo.mp4)
+
 ## Features
 
 - **Sweep a big area, mine only the ore.** Drag across a whole hillside and your mice dig out the ore veins without tunnelling through all the stone around them.
@@ -46,6 +50,7 @@ Settings are read once, when the game starts.
 | `dist/OreSweep.ini` | Default settings file shipped with the dll. |
 | `build.sh` | Build script, output goes to `build/`. |
 | `docs/internals.md` | Reverse-engineering notes: what the hook patches and why. |
+| `docs/demo.gif`, `docs/demo.mp4` | The demo shown at the top of this README. |
 
 ## Building from source
 
