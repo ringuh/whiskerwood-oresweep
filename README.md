@@ -6,7 +6,7 @@ Hold **Ctrl** while you release a mining-tool drag. Only the cells that contain 
 
 ![OreSweep in action: a Ctrl-drag over a whole island marks only the ore cells](docs/demo.gif)
 
-In the demo, Ctrl-drags over an island mark only the ore veins; the stone around them is left alone. [Full-quality video (MP4)](docs/demo.mp4)
+In the demo, Ctrl-drags over an island mark only the ore veins; the stone around them is left alone.
 
 ## Features
 
@@ -50,7 +50,7 @@ Settings are read once, when the game starts.
 | `dist/OreSweep.ini` | Default settings file shipped with the dll. |
 | `build.sh` | Build script, output goes to `build/`. |
 | `docs/internals.md` | Reverse-engineering notes: what the hook patches and why. |
-| `docs/demo.gif`, `docs/demo.mp4` | The demo shown at the top of this README. |
+| `docs/demo.gif` | The demo shown at the top of this README. |
 
 ## Building from source
 
