@@ -1,0 +1,7 @@
+# build output
+build/
+*.obj
+*.lib
+*.exp
+# runtime files if you test from the repo folder
+*.log
