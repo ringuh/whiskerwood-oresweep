@@ -19,9 +19,11 @@ The preview while you drag (the highlighted cells and the tooltip counts) still 
 
 ## Installing
 
-1. Download `OreSweep-v1.0.zip` from the [Releases page](https://github.com/ringuh/whiskerwood-oresweep/releases) and unzip it. It contains `dsound.dll` and `OreSweep.ini`. (Or [build them yourself](#building-from-source).)
+There are no prebuilt downloads: you build the mod yourself, which takes a minute.
+
+1. [Build it](#building-from-source). This gives you `build\dsound.dll` and `build\OreSweep.ini`.
 2. Close the game.
-3. Copy `dsound.dll` and `OreSweep.ini` into the folder that contains `Whiskerwood-Win64-Shipping.exe`:
+3. Copy both files into the folder that contains `Whiskerwood-Win64-Shipping.exe`:
    `...\steamapps\common\Whiskerwood\Whiskerwood\Binaries\Win64\`
    (In Steam: right-click Whiskerwood → Manage → Browse local files, then open `Whiskerwood\Binaries\Win64`.)
 4. Start the game and hold Ctrl while releasing a mining drag.
@@ -49,27 +51,22 @@ Settings are read once, when the game starts.
 | `src/dsound.def` | The DLL's exports (all 12 DirectSound functions, same ordinals as Windows). |
 | `src/kernel32.def`, `src/user32.def` | Import lists used to generate import libraries, so no Windows SDK is needed. |
 | `dist/OreSweep.ini` | Default settings file shipped with the dll. |
-| `build.sh` | Build script, output goes to `build/`. |
+| `build.bat`, `build.sh` | Build scripts for Windows and for Linux / WSL / Git Bash; output goes to `build/`. |
 | `docs/internals.md` | Reverse-engineering notes: what the hook patches and why. |
 | `docs/demo.gif` | The demo shown at the top of this README. |
 
 ## Building from source
 
-Needs LLVM (clang, lld-link and llvm-dlltool, version 15 or newer). Visual Studio, the Windows SDK and MinGW are not needed.
+You need [LLVM](https://github.com/llvm/llvm-project/releases) (clang, lld-link and llvm-dlltool, version 15 or newer). Visual Studio, the Windows SDK and MinGW are not needed.
 
-```sh
-./build.sh
-```
+**On Windows:**
+1. Install LLVM, for example with `winget install LLVM.LLVM`, or download `LLVM-<version>-win64.exe` from the LLVM releases page. If LLVM isn't on your PATH, `build.bat` also looks in `C:\Program Files\LLVM\bin`.
+2. Download this repository (Code → Download ZIP, or `git clone`).
+3. Double-click `build.bat`, or run it from a terminal in the repository folder.
 
-This works on Linux, WSL, or Git Bash on Windows with [LLVM for Windows](https://github.com/llvm/llvm-project/releases) on the PATH. The result is `build/dsound.dll`, a copy of `OreSweep.ini`, and `build/OreSweep-v1.0.zip` containing both (the file to attach to a GitHub release).
+**On Linux, WSL or Git Bash:** run `./build.sh`.
 
-## Publishing a release
-
-1. Run `./build.sh`.
-2. On GitHub: Releases → Draft a new release → tag `v1.0` → attach `build/OreSweep-v1.0.zip` → Publish.
-   Or with the GitHub CLI: `gh release create v1.0 build/OreSweep-v1.0.zip --title "OreSweep v1.0"`.
-
-When you bump the version, change `VERSION` in `build.sh` and the zip name in the Installing section.
+Both scripts put `dsound.dll` and a copy of `OreSweep.ini` in the `build` folder.
 
 ## How it works
 
