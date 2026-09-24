@@ -10,10 +10,5 @@ FlushInstructionCache
 GetCurrentProcess
 CreateThread
 CloseHandle
-CreateFileW
-WriteFile
-SetFilePointer
 GetPrivateProfileIntW
-Sleep
-GetTickCount
 DisableThreadLibraryCalls

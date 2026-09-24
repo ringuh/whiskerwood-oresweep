@@ -26,15 +26,9 @@ IMPORT BOOL WINAPI FlushInstructionCache(HANDLE, const void *, u64);
 IMPORT HANDLE WINAPI GetCurrentProcess(void);
 IMPORT HANDLE WINAPI CreateThread(void *, u64, u32(WINAPI *)(void *), void *, u32, u32 *);
 IMPORT BOOL WINAPI CloseHandle(HANDLE);
-IMPORT HANDLE WINAPI CreateFileW(const wchar *, u32, u32, void *, u32, u32, HANDLE);
-IMPORT BOOL WINAPI WriteFile(HANDLE, const void *, u32, u32 *, void *);
-IMPORT u32 WINAPI SetFilePointer(HANDLE, i32, i32 *, u32);
 IMPORT u32 WINAPI GetPrivateProfileIntW(const wchar *, const wchar *, i32, const wchar *);
-IMPORT void WINAPI Sleep(u32);
-IMPORT u32 WINAPI GetTickCount(void);
 IMPORT BOOL WINAPI DisableThreadLibraryCalls(HANDLE);
 IMPORT short WINAPI GetAsyncKeyState(int);
-IMPORT int __cdecl wsprintfA(char *, const char *, ...);
 
 // ---- tiny libc replacements (the compiler may emit calls to these) ----
 void *memset(void *d, int c, u64 n) { u8 *p = (u8 *)d; while (n--) *p++ = (u8)c; return d; }
@@ -43,7 +37,6 @@ int _fltused = 0;
 
 static void wcopy(wchar *d, const wchar *s) { while ((*d++ = *s++)) {} }
 static u32 wlen(const wchar *s) { u32 n = 0; while (s[n]) n++; return n; }
-static u32 slen(const char *s) { u32 n = 0; while (s[n]) n++; return n; }
 
 // ---- dsound forwarding ----
 void *real_DirectSoundCreate, *real_DirectSoundEnumerateA, *real_DirectSoundEnumerateW,
@@ -68,32 +61,19 @@ static void LoadRealDsound(void) {
 
 // ---- config + log ----
 static wchar g_dir[520];     // folder of this dll, with trailing backslash
-static HANDLE g_log = (HANDLE)(i64)-1;
 static int g_key = 17;          // VK_CONTROL (either Ctrl)
 static int g_allowUnsurveyed = 0; // 1 = also keep cells the player hasn't surveyed
 static int g_enabled = 1;
-static int g_debug = 0;
-
-static void Log(const char *s) {
-    if (g_log == (HANDLE)(i64)-1) return;
-    u32 w;
-    WriteFile(g_log, s, slen(s), &w, 0);
-    WriteFile(g_log, "\r\n", 2, &w, 0);
-}
 
 static void InitPathsAndConfig(HANDLE self) {
     u32 n = GetModuleFileNameW(self, g_dir, 512);
     while (n && g_dir[n - 1] != '\\') n--;
     g_dir[n] = 0;
     wchar p[600];
-    wcopy(p, g_dir); wcopy(p + wlen(p), L"OreSweep.log");
-    // GENERIC_WRITE, FILE_SHARE_READ, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL
-    g_log = CreateFileW(p, 0x40000000, 1, 0, 2, 0x80, 0);
     wcopy(p, g_dir); wcopy(p + wlen(p), L"OreSweep.ini");
     g_enabled = GetPrivateProfileIntW(L"OreSweep", L"Enabled", 1, p);
     g_key = GetPrivateProfileIntW(L"OreSweep", L"HotkeyVK", 17, p);
     g_allowUnsurveyed = GetPrivateProfileIntW(L"OreSweep", L"KeepUnsurveyed", 0, p);
-    g_debug = GetPrivateProfileIntW(L"OreSweep", L"DebugLog", 0, p);
 }
 
 // ---- pattern scanning ----
@@ -156,8 +136,6 @@ extern void ore_tramp(void);
 static void **g_gamePtr;   // address of the global game-state pointer
 static u32 g_gridOff;      // offset of terrain grid inside game state
 
-static u32 g_kept, g_skipStone, g_skipUnsurveyed, g_lastTick;
-
 // Terrain grid: IntVector origin @0, IntVector size @0xC, cells* @0x18, cell = 0x1C bytes.
 // Cell byte0: 0x80 = surveyed, 0x20 = has resource slots; u16 @+4 = 8 two-bit slots,
 // first slot == 0b11 is the ore index; none -> plain stone.
@@ -174,24 +152,20 @@ int OreFilter_ShouldSkip(const i32 *pos) {
     if (!cells) return 0;
     u8 *cell = cells + (i64)((z * o[4] + y) * o[3] + x) * 0x1c;
     u8 flags = cell[0];
-    g_lastTick = GetTickCount();
     if (!(flags & 0x80)) {
-        if (g_allowUnsurveyed) { g_kept++; return 0; }
-        g_skipUnsurveyed++; return 1;
+        return g_allowUnsurveyed ? 0 : 1;
     }
-    if (!(flags & 0x20)) { g_kept++; return 0; }
+    if (!(flags & 0x20)) return 0;
     u16 slots = *(u16 *)(cell + 4);
     for (int i = 0; i < 8; i++) {
         u16 m = (u16)(3u << (2 * i));
-        if ((slots & m) == m) { g_kept++; return 0; }
+        if ((slots & m) == m) return 0;
     }
-    g_skipStone++;
     return 1;
 }
 
 static int InstallHook(void) {
-    char buf[256];
-    if (!FindText()) { Log("ERROR: .text not found"); return 0; }
+    if (!FindText()) return 0;
 
     int c1, c2, c3, c4;
     // per-cell body of the "mark for mining" commit loop (the add-mark variant, sets byte +0x48 = 1)
@@ -212,23 +186,16 @@ static int InstallHook(void) {
     // terrain cell lookup (to confirm the grid layout we re-implement)
     u8 *lookup = Scan("48 83 EC 18 44 8B 11 44 39 12 7C ?? 44 8B 41 04 44 39 42 04 7C ?? "
                       "44 8B 49 08 44 39 4A 08 7C", &c4);
-    wsprintfA(buf, "scan: loop=%d getter=%d grid=%d lookup=%d", c1, c2, c3, c4);
-    Log(buf);
-    if (c1 != 1 || c2 < 1 || c3 != 1 || c4 < 1) {
-        Log("ERROR: game code didn't match (game updated?). Mod is inactive.");
-        return 0;
-    }
+    if (c1 != 1 || c2 < 1 || c3 != 1 || c4 < 1) return 0;  // game code changed: stay inactive
     // layout check inside lookup: imul rax,rax,0x1c ; add rax,[rcx+0x18]
     int layoutOk = 0;
     for (int i = 0; i < 0x80; i++)
         if (lookup[i] == 0x48 && lookup[i + 1] == 0x6B && lookup[i + 2] == 0xC0 && lookup[i + 3] == 0x1C &&
             lookup[i + 4] == 0x48 && lookup[i + 5] == 0x03 && lookup[i + 6] == 0x41 && lookup[i + 7] == 0x18) layoutOk = 1;
-    if (!layoutOk) { Log("ERROR: terrain cell layout changed. Mod is inactive."); return 0; }
+    if (!layoutOk) return 0;
 
     u8 *getter = Rel32(getterCall + 1);
-    if (!(getter[0] == 0x48 && getter[1] == 0x8B && getter[2] == 0x05 && getter[7] == 0xC3)) {
-        Log("ERROR: game-state getter not recognised. Mod is inactive."); return 0;
-    }
+    if (!(getter[0] == 0x48 && getter[1] == 0x8B && getter[2] == 0x05 && getter[7] == 0xC3)) return 0;
     g_gamePtr = (void **)Rel32(getter + 3);
     g_gridOff = *(u32 *)(gridAdd + 2);
 
@@ -236,41 +203,25 @@ static int InstallHook(void) {
     g_retKeep = hook + 14;
     u8 *callIter = loop + 0xDE;             // E8 rel32 (iterator ++)
     u8 *jmpHead = loop + 0xE3;              // E9 rel32 (back to loop head)
-    if (callIter[0] != 0xE8 || jmpHead[0] != 0xE9) { Log("ERROR: loop tail mismatch"); return 0; }
+    if (callIter[0] != 0xE8 || jmpHead[0] != 0xE9) return 0;
     g_iterNext = Rel32(callIter + 1);
     g_loopHead = Rel32(jmpHead + 1);
-    if (g_loopHead != (void *)loop) { Log("ERROR: loop head mismatch"); return 0; }
-
-    wsprintfA(buf, "hook @ exe+0x%x, gridOff=0x%x", (u32)(hook - (u8 *)GetModuleHandleW(0)), g_gridOff);
-    Log(buf);
+    if (g_loopHead != (void *)loop) return 0;
 
     u8 patch[14] = {0xFF, 0x25, 0, 0, 0, 0};  // jmp qword ptr [rip+0]
     *(u64 *)(patch + 6) = (u64)(void *)ore_tramp;
     u32 old;
-    if (!VirtualProtect(hook, 14, 0x40, &old)) { Log("ERROR: VirtualProtect failed"); return 0; }
+    if (!VirtualProtect(hook, 14, 0x40, &old)) return 0;
     for (int i = 0; i < 14; i++) hook[i] = patch[i];
     VirtualProtect(hook, 14, old, &old);
     FlushInstructionCache(GetCurrentProcess(), hook, 14);
-    Log("OK: hook installed. Hold the hotkey while releasing a mining drag to mark ore only.");
     return 1;
 }
 
 static u32 WINAPI Worker(void *arg) {
     (void)arg;
-    if (!InstallHook()) return 0;
-    // report results of each drag in the log (debug)
-    u32 k = 0, s = 0, u = 0;
-    for (;;) {
-        Sleep(500);
-        if (!g_debug) continue;
-        if ((g_kept != k || g_skipStone != s || g_skipUnsurveyed != u) && GetTickCount() - g_lastTick > 300) {
-            char buf[160];
-            wsprintfA(buf, "ore-only drag: kept %u, skipped stone %u, skipped unsurveyed %u",
-                      g_kept - k, g_skipStone - s, g_skipUnsurveyed - u);
-            Log(buf);
-            k = g_kept; s = g_skipStone; u = g_skipUnsurveyed;
-        }
-    }
+    InstallHook();
+    return 0;
 }
 
 BOOL WINAPI DllMain(HANDLE inst, u32 reason, void *reserved) {
@@ -279,11 +230,10 @@ BOOL WINAPI DllMain(HANDLE inst, u32 reason, void *reserved) {
         DisableThreadLibraryCalls(inst);
         LoadRealDsound();
         InitPathsAndConfig(inst);
-        Log("OreSweep v1.0 loaded");
         if (g_enabled) {
             HANDLE t = CreateThread(0, 0, Worker, 0, 0, 0);
             if (t) CloseHandle(t);
-        } else Log("disabled in ini");
+        }
     }
     return 1;
 }

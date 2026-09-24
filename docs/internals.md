@@ -72,4 +72,4 @@ are replaced by `jmp qword [rip+0]; dq ore_tramp`. On entry `rax` = element inde
 
 ## If a game update breaks it
 
-`OreSweep.log` lists the match count for each signature (`scan: loop=1 getter=2 grid=1 lookup=1` is healthy). Re-find the commit loop by searching for `66 C7 03 2B 00` (`mov word [rbx], 0x2B`) near `C6 43 48 01`, then update the pattern and the `+0x1B` / `+0xDE` / `+0xE3` offsets in `InstallHook`.
+When a signature doesn't match, the mod silently stays inactive (there is no log). Healthy match counts are `loop=1`, `getter>=1`, `grid=1`, `lookup>=1`; check them with any pattern scanner against the new exe. Re-find the commit loop by searching for `66 C7 03 2B 00` (`mov word [rbx], 0x2B`) near `C6 43 48 01`, then update the pattern and the `+0x1B` / `+0xDE` / `+0xE3` offsets in `InstallHook`.
